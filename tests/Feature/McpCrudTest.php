@@ -28,7 +28,7 @@ use Tests\TestCase;
 
 class McpCrudTest extends TestCase
 {
-    public function test_mcp_endpoint_requires_oauth_and_excludes_browser_csrf(): void
+    public function test_mcp_endpoint_is_public_and_excludes_browser_csrf(): void
     {
         $route = $this->app['router']->getRoutes()->match(
             Request::create('/mcp/blog', 'POST')
@@ -36,8 +36,8 @@ class McpCrudTest extends TestCase
 
         $middleware = $route->gatherMiddleware();
 
-        $this->assertContains('auth:api', $route->middleware());
-        $this->assertContains('scopes:mcp:use', $route->middleware());
+        $this->assertNotContains('auth:api', $route->middleware());
+        $this->assertNotContains('scopes:mcp:use', $route->middleware());
         $this->assertNotContains(ValidateCsrfToken::class, $middleware);
     }
 
