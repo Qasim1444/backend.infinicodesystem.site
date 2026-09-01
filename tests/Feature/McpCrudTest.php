@@ -7,13 +7,16 @@ use App\Mcp\Tools\CreateCategoryTool;
 use App\Mcp\Tools\CreatePostTool;
 use App\Mcp\Tools\CreateTagTool;
 use App\Mcp\Tools\DeleteCategoryTool;
+use App\Mcp\Tools\DeletePostTool;
 use App\Mcp\Tools\DeleteTagTool;
 use App\Mcp\Tools\ListCategoriesTool;
 use App\Mcp\Tools\ListPostsTool;
 use App\Mcp\Tools\ListTagsTool;
 use App\Mcp\Tools\ShowCategoryTool;
+use App\Mcp\Tools\ShowPostTool;
 use App\Mcp\Tools\ShowTagTool;
 use App\Mcp\Tools\UpdateCategoryTool;
+use App\Mcp\Tools\UpdatePostTool;
 use App\Mcp\Tools\UpdateTagTool;
 use App\Models\Category;
 use App\Models\Post;
@@ -61,6 +64,57 @@ class McpCrudTest extends TestCase
 
         $postResponse->assertOk();
         $postResponse->assertSee('MCP blog post');
+    }
+
+    public function test_posts_can_be_crud_via_mcp(): void
+    {
+        $category = Category::forceCreate([
+            'name' => 'Laravel',
+            'slug' => 'laravel',
+        ]);
+
+        $tag = Tag::forceCreate([
+            'name' => 'MCP',
+            'slug' => 'mcp',
+        ]);
+
+        $post = BlogServer::tool(CreatePostTool::class, [
+            'title' => 'MCP Post',
+            'content' => '<p>Hello from MCP</p>',
+            'category_id' => $category->id,
+            'tags' => [$tag->id],
+            'is_published' => true,
+        ]);
+
+        $post->assertOk()->assertSee('MCP Post');
+
+        $created = Post::firstWhere('slug', 'mcp-post');
+        $this->assertNotNull($created);
+
+        BlogServer::tool(ShowPostTool::class, ['id' => $created->id])
+            ->assertOk()
+            ->assertSee(['MCP Post', 'Laravel', 'mcp']);
+
+        BlogServer::tool(UpdatePostTool::class, [
+            'id' => $created->id,
+            'title' => 'Updated MCP Post',
+            'category_id' => $category->id,
+            'tags' => [$tag->id],
+            'is_published' => false,
+        ])->assertOk()->assertSee('Updated MCP Post');
+
+        $this->assertDatabaseHas('posts', [
+            'id' => $created->id,
+            'title' => 'Updated MCP Post',
+            'slug' => 'updated-mcp-post',
+            'is_published' => false,
+        ]);
+
+        BlogServer::tool(DeletePostTool::class, ['id' => $created->id])
+            ->assertOk()
+            ->assertSee('deleted successfully');
+
+        $this->assertDatabaseMissing('posts', ['id' => $created->id]);
     }
 
     public function test_categories_can_be_crud_via_mcp(): void
@@ -231,7 +285,10 @@ class McpCrudTest extends TestCase
 
         $this->assertEqualsCanonicalizing([
             'list-posts-tool',
+            'show-post-tool',
             'create-post-tool',
+            'update-post-tool',
+            'delete-post-tool',
             'list-categories-tool',
             'show-category-tool',
             'create-category-tool',
