@@ -21,11 +21,26 @@ use App\Mcp\Tools\UpdateTagTool;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\Tag;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Tests\TestCase;
 
 class McpCrudTest extends TestCase
 {
+    public function test_mcp_endpoint_requires_oauth_and_excludes_browser_csrf(): void
+    {
+        $route = $this->app['router']->getRoutes()->match(
+            Request::create('/mcp/blog', 'POST')
+        );
+
+        $middleware = $route->gatherMiddleware();
+
+        $this->assertContains('auth:api', $route->middleware());
+        $this->assertContains('scopes:mcp:use', $route->middleware());
+        $this->assertNotContains(ValidateCsrfToken::class, $middleware);
+    }
+
     use RefreshDatabase;
 
     public function test_blog_server_can_list_posts(): void
@@ -273,6 +288,8 @@ class McpCrudTest extends TestCase
 
     public function test_mcp_endpoint_advertises_every_category_and_tag_tool(): void
     {
+        $this->withoutMiddleware();
+
         $response = $this->postJson('/mcp/blog', [
             'jsonrpc' => '2.0',
             'id' => 1,
